@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNN Activities – Image Recognition Adventure</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    color: #fff;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  #canvas-container {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 0; pointer-events: none;
+  }
+  .ui {
+    position: relative; z-index: 10;
+    max-width: 960px; margin: 0 auto; padding: 20px;
+  }
+  header {
+    text-align: center; padding: 16px 0 8px;
+  }
+  header h1 {
+    font-size: 1.9rem; font-weight: 800;
+    background: linear-gradient(90deg, #00f5d4, #7b2cbf, #ff6b6b);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  header p { opacity: 0.85; font-size: 0.95rem; margin-top: 4px; }
+  .controls {
+    display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+    margin: 12px 0 20px;
+  }
+  .btn {
+    background: linear-gradient(135deg, #7b2cbf, #5a189a);
+    border: none; color: white; padding: 10px 20px;
+    border-radius: 50px; font-weight: 700; font-size: 0.95rem;
+    cursor: pointer; transition: all 0.25s; box-shadow: 0 4px 15px rgba(123,44,191,0.4);
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(123,44,191,0.6); }
+  .btn:active { transform: scale(0.97); }
+  .btn.reset { background: linear-gradient(135deg, #ff6b6b, #ee5a24); }
+  .btn.sound { background: linear-gradient(135deg, #00b894, #00cec9); }
+  .btn.sound.off { background: linear-gradient(135deg, #636e72, #2d3436); }
+  .btn.nav { background: linear-gradient(135deg, #0984e3, #74b9ff); }
+  .progress {
+    display: flex; gap: 8px; justify-content: center; margin-bottom: 18px; flex-wrap: wrap;
+  }
+  .dot {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 0.85rem; cursor: pointer; transition: all 0.3s;
+    border: 2px solid transparent;
+  }
+  .dot.active { background: #00f5d4; color: #0f0c29; border-color: #fff; transform: scale(1.15); }
+  .dot.done { background: #7b2cbf; }
+  .card {
+    background: rgba(255,255,255,0.08); backdrop-filter: blur(12px);
+    border-radius: 20px; padding: 24px; margin-bottom: 20px;
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+  .card h2 { font-size: 1.45rem; margin-bottom: 8px; color: #00f5d4; }
+  .card h3 { font-size: 1.15rem; margin: 14px 0 8px; color: #ffd166; }
+  .card p, .card li { line-height: 1.55; opacity: 0.92; }
+  .card ul { margin-left: 20px; margin-bottom: 10px; }
+  .level-badge {
+    display: inline-block; background: #ff6b6b; color: white;
+    font-size: 0.75rem; font-weight: 800; padding: 3px 10px;
+    border-radius: 20px; margin-bottom: 8px;
+  }
+  .level-badge.easy { background: #00b894; }
+  .level-badge.medium { background: #fdcb6e; color: #2d3436; }
+  .level-badge.hard { background: #e17055; }
+  .interactive-area {
+    background: rgba(0,0,0,0.25); border-radius: 16px;
+    padding: 18px; margin-top: 14px; min-height: 160px;
+  }
+  .object-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 14px; margin-top: 12px;
+  }
+  .object-card {
+    background: rgba(255,255,255,0.1); border-radius: 14px; padding: 14px;
+    text-align: center; cursor: pointer; transition: all 0.25s;
+    border: 2px solid transparent;
+  }
+  .object-card:hover { transform: translateY(-4px); border-color: #00f5d4; }
+  .object-card.selected { border-color: #00f5d4; background: rgba(0,245,212,0.15); }
+  .object-card .emoji { font-size: 2.8rem; display: block; margin-bottom: 6px; }
+  .clue-input {
+    width: 100%; padding: 10px 14px; border-radius: 10px; border: none;
+    background: rgba(255,255,255,0.12); color: white; font-size: 1rem;
+    margin-top: 8px;
+  }
+  .clue-input::placeholder { color: rgba(255,255,255,0.5); }
+  .layer-stack {
+    display: flex; flex-direction: column; gap: 8px; align-items: center; margin: 16px 0;
+  }
+  .layer-box {
+    width: 90%; max-width: 320px; padding: 12px; border-radius: 12px;
+    text-align: center; font-weight: 700; cursor: pointer;
+    transition: all 0.3s; position: relative;
+  }
+  .layer-box:hover { transform: scale(1.03); }
+  .layer-box.l1 { background: linear-gradient(90deg, #00f5d4, #00b894); color: #0f0c29; }
+  .layer-box.l2 { background: linear-gradient(90deg, #74b9ff, #0984e3); }
+  .layer-box.l3 { background: linear-gradient(90deg, #a29bfe, #6c5ce7); }
+  .layer-box.l4 { background: linear-gradient(90deg, #fd79a8, #e84393); }
+  .feedback {
+    margin-top: 12px; padding: 12px; border-radius: 12px;
+    background: rgba(0,245,212,0.15); border-left: 4px solid #00f5d4;
+    display: none;
+  }
+  .feedback.show { display: block; animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .score-box {
+    text-align: center; font-size: 1.3rem; font-weight: 800;
+    margin: 10px 0; color: #ffd166;
+  }
+  .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; justify-content: center; }
+  .hidden { display: none !important; }
+  .design-form input, .design-form textarea {
+    width: 100%; padding: 10px; margin: 6px 0 12px;
+    border-radius: 10px; border: none; background: rgba(255,255,255,0.12);
+    color: white; font-family: inherit; font-size: 0.95rem;
+  }
+  .design-form label { font-weight: 600; color: #00f5d4; }
+  footer {
+    text-align: center; padding: 20px; opacity: 0.7; font-size: 0.85rem;
+  }
+  .sparkle {
+    position: absolute; pointer-events: none;
+    animation: sparkle 1s ease-out forwards;
+  }
+  @keyframes sparkle {
+    0% { transform: scale(0) rotate(0deg); opacity: 1; }
+    100% { transform: scale(1.5) rotate(180deg); opacity: 0; }
+  }
+  .cnn-type-card {
+    background: rgba(255,255,255,0.1); border-radius: 14px; padding: 16px;
+    text-align: left; cursor: pointer; transition: all 0.25s;
+    border: 2px solid transparent; min-height: 120px;
+  }
+  .cnn-type-card:hover { transform: translateY(-4px); border-color: #00f5d4; }
+  .cnn-type-card.selected { border-color: #00f5d4; background: rgba(0,245,212,0.12); }
+  .cnn-type-card .type-icon { font-size: 2rem; margin-bottom: 6px; }
+  .cnn-type-card h4 { color: #00f5d4; margin-bottom: 4px; }
+  .match-row {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 12px;
+  }
+  .match-task { flex: 1; min-width: 140px; font-weight: 700; }
+  .match-select {
+    background: rgba(255,255,255,0.12); color: white; border: none;
+    padding: 8px 12px; border-radius: 8px; font-family: inherit; font-size: 0.95rem;
+  }
+  .skip-block {
+    display: inline-block; padding: 10px 16px; margin: 4px;
+    border-radius: 10px; font-weight: 700; cursor: pointer;
+    transition: all 0.25s; border: 2px solid transparent;
+  }
+  .skip-block.normal { background: rgba(116,185,255,0.3); }
+  .skip-block.skip { background: rgba(0,245,212,0.35); border-color: #00f5d4; }
+  .skip-block.selected { box-shadow: 0 0 12px #00f5d4; transform: scale(1.05); }
+</style>
+</head>
+<body>
+<div id="canvas-container"></div>
+
+<div class="ui">
+  <header>
+    <h1>🧠 CNN Image Recognition Activities</h1>
+    <p>Professor Spark • Luna • Pixi • Ages 9+</p>
+  </header>
+
+  <div class="controls">
+    <button class="btn reset" id="resetBtn">🔄 Reset Current Activity</button>
+    <button class="btn sound" id="soundBtn">🔊 Sound: ON</button>
+  </div>
+
+  <div class="progress" id="progressDots"></div>
+
+  <!-- ACTIVITY 1: Human CNN (Easy – 9yo) -->
+  <div class="card activity" id="act1">
+    <span class="level-badge easy">Level 1 • Easy</span>
+    <h2>🕵️ Activity 1: Be a Human CNN</h2>
+    <p>Your brain already works a bit like a CNN! Look at each picture and type the <strong>clues</strong> (features) that help you recognize it.</p>
+    <div class="interactive-area">
+      <div class="object-grid" id="objectGrid">
+        <div class="object-card" data-obj="dog">
+          <span class="emoji">🐶</span>
+          <strong>Dog</strong>
+          <input class="clue-input" placeholder="e.g. fur, ears, tail..." data-target="dog">
+        </div>
+        <div class="object-card" data-obj="car">
+          <span class="emoji">🚗</span>
+          <strong>Car</strong>
+          <input class="clue-input" placeholder="e.g. wheels, windows..." data-target="car">
+        </div>
+        <div class="object-card" data-obj="tree">
+          <span class="emoji">🌳</span>
+          <strong>Tree</strong>
+          <input class="clue-input" placeholder="e.g. trunk, leaves..." data-target="tree">
+        </div>
+        <div class="object-card" data-obj="apple">
+          <span class="emoji">🍎</span>
+          <strong>Apple</strong>
+          <input class="clue-input" placeholder="e.g. round, red, stem..." data-target="apple">
+        </div>
+      </div>
+      <div class="btn-group">
+        <button class="btn" id="checkCluesBtn">✅ Check My Clues</button>
+      </div>
+      <div class="feedback" id="clueFeedback"></div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 2: CNN Layers (Easy-Medium) -->
+  <div class="card activity hidden" id="act2">
+    <span class="level-badge easy">Level 2 • Easy</span>
+    <h2>🧱 Activity 2: Explore CNN Layers</h2>
+    <p>A CNN looks at an image in steps (layers). Click each layer to see what it does!</p>
+    <div class="interactive-area">
+      <div class="layer-stack" id="layerStack">
+        <div class="layer-box l1" data-layer="1">🔍 Layer 1 – Edges & Lines</div>
+        <div class="layer-box l2" data-layer="2">🔷 Layer 2 – Simple Shapes</div>
+        <div class="layer-box l3" data-layer="3">🧩 Layer 3 – Object Parts</div>
+        <div class="layer-box l4" data-layer="4">🏷 Final Layer – Prediction</div>
+      </div>
+      <div class="feedback show" id="layerInfo">
+        Click any layer above to learn what it does!
+      </div>
+      <div class="btn-group">
+        <button class="btn" id="nextLayerBtn">Next Layer →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 3: Dataset Explorer (Medium) -->
+  <div class="card activity hidden" id="act3">
+    <span class="level-badge medium">Level 3 • Medium</span>
+    <h2>📸 Activity 3: Explore the Dataset</h2>
+    <p>AI learns from many example pictures. Look at the four groups and answer the questions.</p>
+    <div class="interactive-area">
+      <div class="object-grid">
+        <div class="object-card"><span class="emoji">🐱</span>Cats</div>
+        <div class="object-card"><span class="emoji">🐶</span>Dogs</div>
+        <div class="object-card"><span class="emoji">🌻</span>Flowers</div>
+        <div class="object-card"><span class="emoji">🚗</span>Cars</div>
+      </div>
+      <h3>What differences do you notice?</h3>
+      <div id="diffChecks">
+        <label><input type="checkbox" value="colors"> Colors</label><br>
+        <label><input type="checkbox" value="shapes"> Shapes</label><br>
+        <label><input type="checkbox" value="sizes"> Sizes</label><br>
+        <label><input type="checkbox" value="textures"> Textures / Patterns</label><br>
+        <label><input type="checkbox" value="background"> Backgrounds</label>
+      </div>
+      <div class="btn-group">
+        <button class="btn" id="checkDiffBtn">✅ Submit Observations</button>
+      </div>
+      <div class="feedback" id="diffFeedback"></div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 4: Build CNN (Medium-Hard) -->
+  <div class="card activity hidden" id="act4">
+    <span class="level-badge medium">Level 4 • Medium</span>
+    <h2>🛠️ Activity 4: Build Your CNN</h2>
+    <p>Click the pieces in the correct order to assemble a simple CNN. (Think of the journey of an image!)</p>
+    <div class="interactive-area">
+      <div class="score-box">Pieces placed: <span id="buildCount">0</span> / 5</div>
+      <div id="buildPieces" class="object-grid">
+        <div class="object-card build-piece" data-order="1">📸 Image Input</div>
+        <div class="object-card build-piece" data-order="2">🔍 Convolution (find features)</div>
+        <div class="object-card build-piece" data-order="3">🧊 Pooling (keep important bits)</div>
+        <div class="object-card build-piece" data-order="4">📄 Flatten</div>
+        <div class="object-card build-piece" data-order="5">🏷 Prediction</div>
+      </div>
+      <div id="buildResult" class="layer-stack" style="min-height:80px;"></div>
+      <div class="feedback" id="buildFeedback"></div>
+      <div class="btn-group">
+        <button class="btn" id="checkBuildBtn">✅ Check Order</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 5: Accuracy & Improvement (Harder) -->
+  <div class="card activity hidden" id="act5">
+    <span class="level-badge hard">Level 5 • Challenge</span>
+    <h2>📊 Activity 5: AI Doctor – Improve Accuracy</h2>
+    <p>Your AI got only 60% accuracy. Choose the best ways to make it better!</p>
+    <div class="interactive-area">
+      <div class="score-box">Current Accuracy: <span id="accVal">60</span>%</div>
+      <div id="improveCards" class="object-grid">
+        <div class="object-card improve" data-boost="12">📷 More Images</div>
+        <div class="object-card improve" data-boost="8">✨ Better Quality</div>
+        <div class="object-card improve" data-boost="10">🔄 Different Angles</div>
+        <div class="object-card improve" data-boost="7">⏱ Train Longer</div>
+        <div class="object-card improve" data-boost="9">⚖️ Balance Dataset</div>
+        <div class="object-card improve" data-boost="5">🗑 Remove Bad Labels</div>
+      </div>
+      <p style="margin-top:10px;opacity:0.8;">Click up to 3 improvement cards, then press Boost!</p>
+      <div class="btn-group">
+        <button class="btn" id="boostBtn">🚀 Boost Accuracy</button>
+      </div>
+      <div class="feedback" id="accFeedback"></div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 6: Design Challenge -->
+  <div class="card activity hidden" id="act6">
+    <span class="level-badge hard">Level 6 • Design</span>
+    <h2>🚀 Activity 6: Design Your Own Image AI</h2>
+    <p>Invent a useful image-recognition AI for school, home or community.</p>
+    <div class="interactive-area design-form" id="designFormArea">
+      <label>My AI Project Name</label>
+      <input type="text" id="projName" placeholder="e.g. Plant Doctor AI">
+      <label>Problem It Solves</label>
+      <input type="text" id="projProblem" placeholder="e.g. Finds sick plants early">
+      <label>Images It Recognizes</label>
+      <input type="text" id="projImages" placeholder="e.g. healthy leaves, spots, wilting">
+      <label>Who Uses It</label>
+      <input type="text" id="projUsers" placeholder="e.g. gardeners, students">
+      <label>How It Helps People</label>
+      <textarea id="projHelp" rows="2" placeholder="..."></textarea>
+      <label>How I Would Improve Accuracy</label>
+      <textarea id="projImprove" rows="2" placeholder="More photos, different lighting..."></textarea>
+      <div class="btn-group">
+        <button class="btn" id="saveDesignBtn">💾 Save & Showcase</button>
+      </div>
+      <div class="feedback" id="designFeedback"></div>
+    </div>
+
+    <!-- Showcase panel (hidden until saved) -->
+    <div id="showcasePanel" class="hidden" style="margin-top:18px;">
+      <div style="background:linear-gradient(135deg,rgba(0,245,212,0.15),rgba(123,44,191,0.2)); border:2px solid #00f5d4; border-radius:18px; padding:22px; text-align:center;">
+        <div style="font-size:2.4rem; margin-bottom:6px;">🏅</div>
+        <h3 style="color:#00f5d4; margin-bottom:4px;">Project Showcase</h3>
+        <p style="opacity:0.8; margin-bottom:16px;">Professor Spark awards you the CNN Explorer & AI Visionary badges!</p>
+        <div id="showcaseContent" style="text-align:left; background:rgba(0,0,0,0.25); border-radius:14px; padding:16px; line-height:1.6;"></div>
+        <div class="btn-group" style="margin-top:18px;">
+          <button class="btn" id="downloadPdfBtn" style="background:linear-gradient(135deg,#e17055,#d63031);">📄 Download PDF Certificate</button>
+          <button class="btn" id="editAgainBtn" style="background:linear-gradient(135deg,#636e72,#2d3436);">✏️ Edit Again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 7: Types of CNNs -->
+  <div class="card activity hidden" id="act7">
+    <span class="level-badge hard">Level 7 • Advanced</span>
+    <h2>🧬 Activity 7: Meet the CNN Families</h2>
+    <p>Not all CNNs are the same! Click each family to discover what makes it special.</p>
+    <div class="interactive-area">
+      <div class="object-grid" id="cnnTypeGrid">
+        <div class="cnn-type-card" data-type="classic">
+          <div class="type-icon">🧱</div>
+          <h4>Classic CNN</h4>
+          <p style="font-size:0.85rem;opacity:0.85;">Simple stack of layers (like the one you built earlier)</p>
+        </div>
+        <div class="cnn-type-card" data-type="deep">
+          <div class="type-icon">🗼</div>
+          <h4>Deep CNN (VGG-style)</h4>
+          <p style="font-size:0.85rem;opacity:0.85;">Many layers stacked – more power, more work</p>
+        </div>
+        <div class="cnn-type-card" data-type="resnet">
+          <div class="type-icon">🔗</div>
+          <h4>Residual (ResNet)</h4>
+          <p style="font-size:0.85rem;opacity:0.85;">Uses “skip connections” so information can jump</p>
+        </div>
+        <div class="cnn-type-card" data-type="mobile">
+          <div class="type-icon">📱</div>
+          <h4>Lightweight (MobileNet)</h4>
+          <p style="font-size:0.85rem;opacity:0.85;">Tiny & fast – perfect for phones (TensorFlow Lite!)</p>
+        </div>
+      </div>
+      <div class="feedback show" id="typeInfo" style="margin-top:14px;">
+        Click a CNN family above to learn more!
+      </div>
+      <div class="btn-group">
+        <button class="btn" id="checkTypesBtn">✅ I explored all 4 families</button>
+      </div>
+      <div class="feedback" id="typeFeedback"></div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 8: Skip Connections -->
+  <div class="card activity hidden" id="act8">
+    <span class="level-badge hard">Level 8 • Advanced</span>
+    <h2>🔗 Activity 8: Skip Connection Challenge</h2>
+    <p>In ResNet, some information can <strong>skip</strong> layers so the network doesn’t forget early details. Choose which path helps the signal survive!</p>
+    <div class="interactive-area">
+      <p style="text-align:center;margin-bottom:12px;">A deep stack of layers. Click the blocks that should get a <strong>skip connection</strong> (green path).</p>
+      <div id="skipVisual" style="text-align:center;padding:12px 0;">
+        <span class="skip-block normal" data-id="1">Layer 1</span>
+        <span style="opacity:0.5;">→</span>
+        <span class="skip-block normal" data-id="2">Layer 2</span>
+        <span style="opacity:0.5;">→</span>
+        <span class="skip-block normal" data-id="3">Layer 3</span>
+        <span style="opacity:0.5;">→</span>
+        <span class="skip-block normal" data-id="4">Layer 4</span>
+        <span style="opacity:0.5;">→</span>
+        <span class="skip-block normal" data-id="5">Layer 5</span>
+      </div>
+      <p style="text-align:center;opacity:0.8;font-size:0.9rem;">Hint: Skipping over the middle layers often helps the deepest networks.</p>
+      <div class="btn-group">
+        <button class="btn" id="checkSkipBtn">✅ Check My Skips</button>
+      </div>
+      <div class="feedback" id="skipFeedback"></div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY 9: Match Task to CNN Type -->
+  <div class="card activity hidden" id="act9">
+    <span class="level-badge hard">Level 9 • Expert</span>
+    <h2>🎯 Activity 9: Match the Task to the Best CNN</h2>
+    <p>Different jobs need different CNN styles. Choose the best fit for each mission.</p>
+    <div class="interactive-area">
+      <div id="matchTasks">
+        <div class="match-row">
+          <div class="match-task">📷 “Is this a cat or a dog?” (simple classification)</div>
+          <select class="match-select" data-answer="classic">
+            <option value="">— choose —</option>
+            <option value="classic">Classic CNN</option>
+            <option value="deep">Deep CNN</option>
+            <option value="resnet">ResNet</option>
+            <option value="mobile">MobileNet / TFLite</option>
+          </select>
+        </div>
+        <div class="match-row">
+          <div class="match-task">🏆 Winning a hard image contest (needs maximum accuracy)</div>
+          <select class="match-select" data-answer="resnet">
+            <option value="">— choose —</option>
+            <option value="classic">Classic CNN</option>
+            <option value="deep">Deep CNN</option>
+            <option value="resnet">ResNet</option>
+            <option value="mobile">MobileNet / TFLite</option>
+          </select>
+        </div>
+        <div class="match-row">
+          <div class="match-task">📱 App on a phone that recognizes plants instantly</div>
+          <select class="match-select" data-answer="mobile">
+            <option value="">— choose —</option>
+            <option value="classic">Classic CNN</option>
+            <option value="deep">Deep CNN</option>
+            <option value="resnet">ResNet</option>
+            <option value="mobile">MobileNet / TFLite</option>
+          </select>
+        </div>
+        <div class="match-row">
+          <div class="match-task">🔬 Very detailed features (many stacked filters)</div>
+          <select class="match-select" data-answer="deep">
+            <option value="">— choose —</option>
+            <option value="classic">Classic CNN</option>
+            <option value="deep">Deep CNN</option>
+            <option value="resnet">ResNet</option>
+            <option value="mobile">MobileNet / TFLite</option>
+          </select>
+        </div>
+      </div>
+      <div class="btn-group">
+        <button class="btn" id="checkMatchBtn">✅ Check Matches</button>
+      </div>
+      <div class="feedback" id="matchFeedback"></div>
+    </div>
+  </div>
+
+  <div class="btn-group" style="margin:20px 0;">
+    <button class="btn nav" id="prevBtn">← Previous</button>
+    <button class="btn nav" id="nextBtn">Next Activity →</button>
+  </div>
+
+  <footer>
+    Mastix ED • Teen AI Fundamentals • Lesson 13 • CNNs<br>
+    “Today you taught computers how to see.” – Professor Spark
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+// ========== SOUND SYSTEM (only plays on button click) ==========
+let soundEnabled = true;
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playTone(freq, duration = 0.15, type = 'sine', vol = 0.25) {
+  if (!soundEnabled) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
+}
+function playSuccess() { playTone(523, 0.12); setTimeout(() => playTone(659, 0.12), 100); setTimeout(() => playTone(784, 0.18), 200); }
+function playClick() { playTone(440, 0.08, 'triangle', 0.15); }
+function playWrong() { playTone(200, 0.2, 'sawtooth', 0.15); }
+function playWhoosh() { playTone(300, 0.25, 'sine', 0.1); }
+
+// ========== 3D BACKGROUND ==========
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.z = 30;
+const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+container.appendChild(renderer.domElement);
+
+// Floating particles
+const particles = [];
+const pGeo = new THREE.SphereGeometry(0.15, 8, 8);
+const colors = [0x00f5d4, 0x7b2cbf, 0xff6b6b, 0x74b9ff, 0xffd166];
+for (let i = 0; i < 60; i++) {
+  const mat = new THREE.MeshBasicMaterial({ color: colors[i % colors.length], transparent: true, opacity: 0.6 });
+  const mesh = new THREE.Mesh(pGeo, mat);
+  mesh.position.set((Math.random() - 0.5) * 50, (Math.random() - 0.5) * 40, (Math.random() - 0.5) * 30);
+  mesh.userData = { speed: 0.002 + Math.random() * 0.01, rot: Math.random() * 0.02 };
+  scene.add(mesh);
+  particles.push(mesh);
+}
+
+// Rotating “CNN cubes”
+const cubes = [];
+for (let i = 0; i < 5; i++) {
+  const geo = new THREE.BoxGeometry(1.8, 1.8, 1.8);
+  const mat = new THREE.MeshBasicMaterial({ color: colors[i], wireframe: true, transparent: true, opacity: 0.35 });
+  const cube = new THREE.Mesh(geo, mat);
+  cube.position.set(-12 + i * 6, Math.sin(i) * 3, -8);
+  scene.add(cube);
+  cubes.push(cube);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  particles.forEach(p => {
+    p.position.y += p.userData.speed;
+    p.rotation.x += p.userData.rot;
+    if (p.position.y > 22) p.position.y = -22;
+  });
+  cubes.forEach((c, i) => {
+    c.rotation.x += 0.005 + i * 0.001;
+    c.rotation.y += 0.008;
+  });
+  renderer.render(scene, camera);
+}
+animate();
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ========== ACTIVITY NAVIGATION ==========
+const activities = ['act1','act2','act3','act4','act5','act6','act7','act8','act9'];
+let current = 0;
+const progressDots = document.getElementById('progressDots');
+
+function buildDots() {
+  progressDots.innerHTML = '';
+  activities.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === current ? ' active' : (i < current ? ' done' : ''));
+    d.textContent = i + 1;
+    d.onclick = () => { playClick(); goTo(i); };
+    progressDots.appendChild(d);
+  });
+}
+function goTo(idx) {
+  document.getElementById(activities[current]).classList.add('hidden');
+  current = idx;
+  document.getElementById(activities[current]).classList.remove('hidden');
+  buildDots();
+  playWhoosh();
+}
+document.getElementById('nextBtn').onclick = () => {
+  playClick();
+  if (current < activities.length - 1) goTo(current + 1);
+};
+document.getElementById('prevBtn').onclick = () => {
+  playClick();
+  if (current > 0) goTo(current - 1);
+};
+buildDots();
+
+// ========== SOUND TOGGLE ==========
+document.getElementById('soundBtn').onclick = function() {
+  soundEnabled = !soundEnabled;
+  this.textContent = soundEnabled ? '🔊 Sound: ON' : '🔇 Sound: OFF';
+  this.classList.toggle('off', !soundEnabled);
+  playClick();
+};
+
+// ========== RESET ==========
+document.getElementById('resetBtn').onclick = () => {
+  playClick();
+  resetCurrent();
+};
+
+function resetCurrent() {
+  const id = activities[current];
+  if (id === 'act1') {
+    document.querySelectorAll('.clue-input').forEach(i => i.value = '');
+    document.getElementById('clueFeedback').classList.remove('show');
+  }
+  if (id === 'act2') {
+    document.getElementById('layerInfo').textContent = 'Click any layer above to learn what it does!';
+    layerIdx = 0;
+  }
+  if (id === 'act3') {
+    document.querySelectorAll('#diffChecks input').forEach(c => c.checked = false);
+    document.getElementById('diffFeedback').classList.remove('show');
+  }
+  if (id === 'act4') {
+    buildOrder = [];
+    document.getElementById('buildCount').textContent = '0';
+    document.getElementById('buildResult').innerHTML = '';
+    document.getElementById('buildFeedback').classList.remove('show');
+    document.querySelectorAll('.build-piece').forEach(p => {
+      p.style.opacity = '1'; p.style.pointerEvents = 'auto';
+    });
+  }
+  if (id === 'act5') {
+    selectedBoosts = [];
+    accuracy = 60;
+    document.getElementById('accVal').textContent = '60';
+    document.querySelectorAll('.improve').forEach(c => c.classList.remove('selected'));
+    document.getElementById('accFeedback').classList.remove('show');
+  }
+  if (id === 'act6') {
+    ['projName','projProblem','projImages','projUsers','projHelp','projImprove'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('designFeedback').classList.remove('show');
+    document.getElementById('showcasePanel').classList.add('hidden');
+    document.getElementById('designFormArea').classList.remove('hidden');
+    savedProject = null;
+  }
+  if (id === 'act7') {
+    document.querySelectorAll('.cnn-type-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('typeInfo').innerHTML = 'Click a CNN family above to learn more!';
+    document.getElementById('typeFeedback').classList.remove('show');
+    exploredTypes.clear();
+  }
+  if (id === 'act8') {
+    document.querySelectorAll('.skip-block').forEach(b => {
+      b.classList.remove('skip', 'selected');
+      b.classList.add('normal');
+    });
+    document.getElementById('skipFeedback').classList.remove('show');
+  }
+  if (id === 'act9') {
+    document.querySelectorAll('.match-select').forEach(s => s.value = '');
+    document.getElementById('matchFeedback').classList.remove('show');
+  }
+}
+
+// ========== ACTIVITY 1 LOGIC ==========
+document.getElementById('checkCluesBtn').onclick = () => {
+  playClick();
+  const inputs = document.querySelectorAll('.clue-input');
+  let filled = 0;
+  inputs.forEach(i => { if (i.value.trim().length > 2) filled++; });
+  const fb = document.getElementById('clueFeedback');
+  if (filled >= 3) {
+    playSuccess();
+    fb.innerHTML = '🎉 Awesome! You found great clues. That is exactly how the first layers of a CNN work – they look for simple features like edges, shapes and textures.';
+    fb.classList.add('show');
+  } else {
+    playWrong();
+    fb.innerHTML = 'Try adding a few more clues for each object. Think about colors, shapes, or special parts!';
+    fb.classList.add('show');
+  }
+};
+
+// ========== ACTIVITY 2 LOGIC ==========
+const layerTexts = {
+  1: '🔍 <strong>Layer 1 – Edges & Lines</strong><br>Looks for simple lines, edges and corners – just like you notice the outline of a cat’s ear first.',
+  2: '🔷 <strong>Layer 2 – Simple Shapes</strong><br>Combines edges into shapes: circles, triangles, rectangles (eyes, wheels, leaves…).',
+  3: '🧩 <strong>Layer 3 – Object Parts</strong><br>Recognizes bigger pieces: a face, a wheel, a flower petal, a tree trunk.',
+  4: '🏷 <strong>Final Layer – Prediction</strong><br>Puts everything together and says “This is a cat!” (or dog, car, flower…).'
+};
+let layerIdx = 0;
+document.querySelectorAll('.layer-box').forEach(box => {
+  box.onclick = () => {
+    playClick();
+    const l = box.dataset.layer;
+    document.getElementById('layerInfo').innerHTML = layerTexts[l];
+    document.getElementById('layerInfo').classList.add('show');
+  };
+});
+document.getElementById('nextLayerBtn').onclick = () => {
+  playClick();
+  layerIdx = (layerIdx % 4) + 1;
+  document.getElementById('layerInfo').innerHTML = layerTexts[layerIdx];
+};
+
+// ========== ACTIVITY 3 LOGIC ==========
+document.getElementById('checkDiffBtn').onclick = () => {
+  playClick();
+  const checked = document.querySelectorAll('#diffChecks input:checked').length;
+  const fb = document.getElementById('diffFeedback');
+  if (checked >= 3) {
+    playSuccess();
+    fb.innerHTML = '✅ Perfect! These differences (colors, shapes, sizes, textures) are the patterns a CNN learns from thousands of pictures.';
+  } else {
+    playWrong();
+    fb.innerHTML = 'Select at least 3 differences you notice. Every difference helps the AI learn!';
+  }
+  fb.classList.add('show');
+};
+
+// ========== ACTIVITY 4 LOGIC ==========
+let buildOrder = [];
+document.querySelectorAll('.build-piece').forEach(piece => {
+  piece.onclick = () => {
+    if (piece.style.opacity === '0.4') return;
+    playClick();
+    const order = parseInt(piece.dataset.order);
+    buildOrder.push(order);
+    piece.style.opacity = '0.4';
+    piece.style.pointerEvents = 'none';
+    document.getElementById('buildCount').textContent = buildOrder.length;
+    const result = document.getElementById('buildResult');
+    const div = document.createElement('div');
+    div.className = 'layer-box l' + Math.min(order, 4);
+    div.textContent = piece.textContent;
+    result.appendChild(div);
+  };
+});
+document.getElementById('checkBuildBtn').onclick = () => {
+  playClick();
+  const fb = document.getElementById('buildFeedback');
+  const correct = [1,2,3,4,5];
+  const ok = buildOrder.length === 5 && buildOrder.every((v,i) => v === correct[i]);
+  if (ok) {
+    playSuccess();
+    fb.innerHTML = '🏆 Perfect order! Image → Convolution → Pooling → Flatten → Prediction. That is the classic CNN journey.';
+  } else {
+    playWrong();
+    fb.innerHTML = 'Not quite. Remember: start with the Image, then find features (Convolution), keep the important ones (Pooling), organize them (Flatten), then make the final prediction.';
+  }
+  fb.classList.add('show');
+};
+
+// ========== ACTIVITY 5 LOGIC ==========
+let selectedBoosts = [];
+let accuracy = 60;
+document.querySelectorAll('.improve').forEach(card => {
+  card.onclick = () => {
+    playClick();
+    if (card.classList.contains('selected')) {
+      card.classList.remove('selected');
+      selectedBoosts = selectedBoosts.filter(b => b !== card);
+    } else if (selectedBoosts.length < 3) {
+      card.classList.add('selected');
+      selectedBoosts.push(card);
+    }
+  };
+});
+document.getElementById('boostBtn').onclick = () => {
+  playClick();
+  if (selectedBoosts.length === 0) {
+    playWrong();
+    document.getElementById('accFeedback').innerHTML = 'Pick at least one improvement card first!';
+    document.getElementById('accFeedback').classList.add('show');
+    return;
+  }
+  let boost = 0;
+  selectedBoosts.forEach(c => boost += parseInt(c.dataset.boost));
+  accuracy = Math.min(98, 60 + boost);
+  document.getElementById('accVal').textContent = accuracy;
+  playSuccess();
+  document.getElementById('accFeedback').innerHTML = `🚀 Great choices! Your AI accuracy jumped to <strong>${accuracy}%</strong>. More good data + variety almost always helps.`;
+  document.getElementById('accFeedback').classList.add('show');
+};
+
+// ========== ACTIVITY 6 LOGIC ==========
+let savedProject = null;
+
+document.getElementById('saveDesignBtn').onclick = () => {
+  playClick();
+  const name = document.getElementById('projName').value.trim();
+  const problem = document.getElementById('projProblem').value.trim();
+  const images = document.getElementById('projImages').value.trim();
+  const users = document.getElementById('projUsers').value.trim();
+  const help = document.getElementById('projHelp').value.trim();
+  const improve = document.getElementById('projImprove').value.trim();
+  const fb = document.getElementById('designFeedback');
+
+  if (name.length < 2) {
+    playWrong();
+    fb.innerHTML = 'Give your AI a cool name first!';
+    fb.classList.add('show');
+    return;
+  }
+
+  savedProject = { name, problem, images, users, help, improve, date: new Date().toLocaleDateString() };
+  playSuccess();
+
+  // Build showcase HTML
+  const sc = document.getElementById('showcaseContent');
+  sc.innerHTML = `
+    <p><strong style="color:#00f5d4;">🚀 Project Name:</strong><br>${escapeHtml(name)}</p>
+    <p style="margin-top:10px;"><strong style="color:#ffd166;">🎯 Problem It Solves:</strong><br>${escapeHtml(problem || '—')}</p>
+    <p style="margin-top:10px;"><strong style="color:#74b9ff;">📸 Images It Recognizes:</strong><br>${escapeHtml(images || '—')}</p>
+    <p style="margin-top:10px;"><strong style="color:#fd79a8;">👥 Who Uses It:</strong><br>${escapeHtml(users || '—')}</p>
+    <p style="margin-top:10px;"><strong style="color:#00b894;">💡 How It Helps People:</strong><br>${escapeHtml(help || '—')}</p>
+    <p style="margin-top:10px;"><strong style="color:#a29bfe;">📈 How to Improve Accuracy:</strong><br>${escapeHtml(improve || '—')}</p>
+  `;
+
+  document.getElementById('designFormArea').classList.add('hidden');
+  document.getElementById('showcasePanel').classList.remove('hidden');
+  fb.classList.remove('show');
+};
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+document.getElementById('editAgainBtn').onclick = () => {
+  playClick();
+  document.getElementById('showcasePanel').classList.add('hidden');
+  document.getElementById('designFormArea').classList.remove('hidden');
+};
+
+document.getElementById('downloadPdfBtn').onclick = () => {
+  playClick();
+  if (!savedProject) return;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  // Background accent
+  doc.setFillColor(15, 12, 41);
+  doc.rect(0, 0, 210, 297, 'F');
+
+  // Top banner
+  doc.setFillColor(0, 245, 212);
+  doc.rect(0, 0, 210, 28, 'F');
+  doc.setTextColor(15, 12, 41);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('CNN Explorer Certificate', 105, 18, { align: 'center' });
+
+  // Badge line
+  doc.setTextColor(0, 245, 212);
+  doc.setFontSize(12);
+  doc.text('Mastix ED  •  Teen AI Fundamentals  •  Lesson 13', 105, 40, { align: 'center' });
+
+  // Project title
+  doc.setTextColor(255, 209, 102);
+  doc.setFontSize(22);
+  doc.text(savedProject.name.substring(0, 40), 105, 58, { align: 'center' });
+
+  // Decorative line
+  doc.setDrawColor(0, 245, 212);
+  doc.setLineWidth(0.5);
+  doc.line(40, 64, 170, 64);
+
+  // Content
+  let y = 78;
+  const left = 25;
+  const maxW = 160;
+
+  function addSection(label, value, color) {
+    doc.setTextColor(...color);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(label, left, y);
+    y += 7;
+    doc.setTextColor(230, 230, 230);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const lines = doc.splitTextToSize(value || '—', maxW);
+    doc.text(lines, left, y);
+    y += lines.length * 5.5 + 8;
+  }
+
+  addSection('Problem It Solves', savedProject.problem, [255, 209, 102]);
+  addSection('Images It Recognizes', savedProject.images, [116, 185, 255]);
+  addSection('Who Uses It', savedProject.users, [253, 121, 168]);
+  addSection('How It Helps People', savedProject.help, [0, 184, 148]);
+  addSection('How to Improve Accuracy', savedProject.improve, [162, 155, 254]);
+
+  // Footer badges
+  y = Math.max(y + 10, 250);
+  doc.setFillColor(123, 44, 191);
+  doc.roundedRect(30, y, 70, 14, 3, 3, 'F');
+  doc.setFillColor(0, 184, 148);
+  doc.roundedRect(110, y, 70, 14, 3, 3, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('CNN Explorer Badge', 65, y + 9, { align: 'center' });
+  doc.text('AI Visionary Badge', 145, y + 9, { align: 'center' });
+
+  // Date
+  doc.setTextColor(150, 150, 150);
+  doc.setFontSize(9);
+  doc.text('Created: ' + savedProject.date, 105, 285, { align: 'center' });
+  doc.text('"Today you taught computers how to see." – Professor Spark', 105, 292, { align: 'center' });
+
+  doc.save((savedProject.name.replace(/[^a-z0-9]/gi, '_') || 'My_AI_Project') + '_Certificate.pdf');
+  playSuccess();
+};
+
+// ========== ACTIVITY 7: CNN Families ==========
+const typeTexts = {
+  classic: `🧱 <strong>Classic CNN</strong><br>
+    The original style: Convolution → Pooling → Flatten → Dense.<br>
+    Great for learning the basics. Easy to understand and train on small datasets.<br>
+    <em>Analogy:</em> A simple detective who looks for clues step by step.`,
+  deep: `🗼 <strong>Deep CNN (VGG-style)</strong><br>
+    Many more layers stacked on top of each other (16 or even 19 layers!).<br>
+    Can learn very detailed patterns, but needs lots of data and computing power.<br>
+    <em>Analogy:</em> A skyscraper of detectives – each floor sees more complex shapes.`,
+  resnet: `🔗 <strong>Residual Network (ResNet)</strong><br>
+    Uses <strong>skip connections</strong> so information can jump over layers.<br>
+    This lets the network be extremely deep (50–150+ layers) without “forgetting” early features.<br>
+    <em>Analogy:</em> A highway with express lanes so the signal doesn’t get stuck in traffic.`,
+  mobile: `📱 <strong>Lightweight CNN (MobileNet)</strong><br>
+    Special design that uses far fewer calculations – perfect for phones and TensorFlow Lite.<br>
+    Still accurate enough for real apps (plant ID, face unlock, etc.).<br>
+    <em>Analogy:</em> A pocket-sized detective that runs on battery power.`
+};
+const exploredTypes = new Set();
+
+document.querySelectorAll('.cnn-type-card').forEach(card => {
+  card.onclick = () => {
+    playClick();
+    const t = card.dataset.type;
+    exploredTypes.add(t);
+    document.querySelectorAll('.cnn-type-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    document.getElementById('typeInfo').innerHTML = typeTexts[t];
+  };
+});
+
+document.getElementById('checkTypesBtn').onclick = () => {
+  playClick();
+  const fb = document.getElementById('typeFeedback');
+  if (exploredTypes.size >= 4) {
+    playSuccess();
+    fb.innerHTML = '🏆 Excellent! You now know the four main CNN families: Classic, Deep, Residual, and Lightweight. Real projects often mix these ideas.';
+  } else {
+    playWrong();
+    fb.innerHTML = `Explore all 4 families first! You still need to click ${4 - exploredTypes.size} more.`;
+  }
+  fb.classList.add('show');
+};
+
+// ========== ACTIVITY 8: Skip Connections ==========
+document.querySelectorAll('.skip-block').forEach(block => {
+  block.onclick = () => {
+    playClick();
+    block.classList.toggle('skip');
+    block.classList.toggle('normal');
+    block.classList.toggle('selected');
+  };
+});
+
+document.getElementById('checkSkipBtn').onclick = () => {
+  playClick();
+  const skipped = [...document.querySelectorAll('.skip-block.skip')].map(b => b.dataset.id).sort();
+  const fb = document.getElementById('skipFeedback');
+
+  if (skipped.length === 0) {
+    playWrong();
+    fb.innerHTML = '❌ You didn’t add any skip connections. Click one or more layers to turn them green, then check again.';
+    fb.classList.add('show');
+    return;
+  }
+
+  // Always name the exact layers the student skipped
+  const names = skipped.map(id => 'Layer ' + id).join(', ');
+  const hasMiddle = skipped.some(id => ['2','3','4'].includes(id));
+  const onlyEnds = skipped.every(id => id === '1' || id === '5');
+  const allLayers = skipped.length === 5;
+
+  let message = '';
+  let success = false;
+
+  if (allLayers) {
+    success = false;
+    message = `⚠️ You skipped ${names} (every layer)! That means almost no processing happens. Skips are helpful, but the network still needs some layers to do real work. Try skipping only middle layers.`;
+  } else if (onlyEnds) {
+    success = false;
+    message = `🤔 You skipped ${names}. Skipping only the first or last layer doesn’t help much — the signal already starts at Layer 1 and ends at Layer 5. Try including a middle layer (2, 3 or 4).`;
+  } else if (hasMiddle) {
+    success = true;
+    message = `✅ Great! You skipped ${names}. That creates a useful ResNet-style shortcut so early features can jump ahead without getting lost.`;
+  } else {
+    success = false;
+    message = `🤔 You skipped ${names}. Try including at least one middle layer (2, 3 or 4) — that’s where the “highway” is most useful.`;
+  }
+
+  if (success) playSuccess();
+  else playWrong();
+  fb.innerHTML = message;
+  fb.classList.add('show');
+};
+
+// ========== ACTIVITY 9: Match Task to CNN ==========
+document.getElementById('checkMatchBtn').onclick = () => {
+  playClick();
+  const selects = document.querySelectorAll('.match-select');
+  let correct = 0;
+  selects.forEach(s => {
+    if (s.value === s.dataset.answer) correct++;
+  });
+  const fb = document.getElementById('matchFeedback');
+  if (correct === 4) {
+    playSuccess();
+    fb.innerHTML = '🏆 Perfect score! You matched every task to the ideal CNN family. That is real AI engineering thinking.';
+  } else if (correct >= 2) {
+    playSuccess();
+    fb.innerHTML = `Good work – ${correct}/4 correct. Remember: simple jobs → Classic, max accuracy → ResNet, phones → MobileNet, very deep features → Deep CNN.`;
+  } else {
+    playWrong();
+    fb.innerHTML = `Only ${correct}/4 right. Hints: phones need MobileNet, contests love ResNet, basic questions work with Classic CNNs.`;
+  }
+  fb.classList.add('show');
+};
+</script>
+</body>
+</html>
